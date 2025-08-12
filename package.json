@@ -1,10 +1,7 @@
 {
-  "name": "esl-lessons-app",
-  "version": "1.0.0",
-  "private": true,
   "type": "module",
   "scripts": {
+    "prebuild": "node scripts/doctor.mjs",
     "build": "node scripts/generate-index.mjs"
-  },
-  "devDependencies": {}
+  }
 }
