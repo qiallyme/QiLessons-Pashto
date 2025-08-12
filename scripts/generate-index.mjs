@@ -32,10 +32,15 @@ function sectionFromRel(rel) {
 function slugify(p) { return p.replace(/\\/g, '/'); }
 
 function main() {
+  // Harden: allow empty repo or first deploy without lessons/
   if (!fs.existsSync(LESSONS_DIR)) {
-    console.error('No lessons/ directory found.');
-    process.exit(1);
+    ensureDir(OUT_DIR);
+    const outIndex = path.join(OUT_DIR, 'index.json');
+    if (!fs.existsSync(outIndex)) fs.writeFileSync(outIndex, '[]', 'utf-8');
+    console.log('No lessons/ directory. Wrote empty public/lessons/index.json and exiting successfully.');
+    process.exit(0);
   }
+
   ensureDir(OUT_DIR);
 
   const files = walk(LESSONS_DIR);
