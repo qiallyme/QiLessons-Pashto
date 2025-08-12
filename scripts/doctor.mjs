@@ -1,14 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, '..');
 
 function tree(dir, prefix = '') {
-  const entries = fs.readdirSync(dir, { withFileTypes: true })
-    .sort((a,b)=>a.name.localeCompare(b.name));
+  const entries = fs.readdirSync(dir, { withFileTypes: true }).sort((a,b)=>a.name.localeCompare(b.name));
   for (const e of entries) {
     const p = path.join(dir, e.name);
     console.log(prefix + (e.isDirectory() ? '📁 ' : '📄 ') + path.relative(root, p) || '.');
