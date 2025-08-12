@@ -1,3 +1,101 @@
-<!doctype html><meta charset="utf-8"><title>QiLessons</title>
-<h1>QiLessons is alive</h1>
-<p>Add lessons under <code>lessons/</code> then run the build.</p>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QiLessons</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/default.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+  <style>
+    /* Lightweight helpers for side-by-side lesson tables */
+    .twocol { width:100%; border-collapse:collapse; margin:12px 0; }
+    .twocol th, .twocol td { vertical-align:top; padding:12px; border:1px solid #1f2937; }
+    .twocol th { background:#0f172a; color:#e5e7eb; text-align:left; }
+    @media (max-width: 800px){
+      .twocol, .twocol tr, .twocol td, .twocol th { display:block; width:100%; }
+      .twocol td + td, .twocol th + th { border-top:none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <aside class="sidebar">
+      <div class="brand">Learning Hub</div>
+      <input id="search" type="search" placeholder="Search lessons...">
+      <nav id="nav"></nav>
+    </aside>
+    <main class="content">
+      <article id="content"></article>
+    </main>
+  </div>
+  <script>
+    const state = { index: [], grouped: {}, current: null };
+    const navEl = document.getElementById('nav');
+    const contentEl = document.getElementById('content');
+    const searchEl = document.getElementById('search');
+
+    async function fetchIndex() {
+      try {
+        const res = await fetch('lessons/index.json', { cache: 'no-store' });
+        if (!res.ok) throw new Error('No index.json yet. Run the build.');
+        state.index = await res.json();
+        const g = {};
+        for (const it of state.index) (g[it.section] ||= []).push(it);
+        Object.values(g).forEach(arr => arr.sort((a,b)=>a.title.localeCompare(b.title)));
+        state.grouped = g;
+        renderNav();
+      } catch (e) {
+        contentEl.innerHTML = `<p style="color:#fca5a5">${e.message}</p>`;
+      }
+    }
+
+    function renderNav(filter='') {
+      const f = filter.trim().toLowerCase(); navEl.innerHTML = '';
+      const sections = Object.keys(state.grouped).sort((a,b)=>a.localeCompare(b));
+      for (const section of sections) {
+        const lessons = state.grouped[section].filter(l => !f || l.title.toLowerCase().includes(f));
+        if (!lessons.length) continue;
+        const secEl = document.createElement('div'); secEl.className='section';
+        const h = document.createElement('h3'); h.textContent = section; secEl.appendChild(h);
+        const ul = document.createElement('ul'); ul.className='lessons';
+        for (const l of lessons) {
+          const li = document.createElement('li'); const a = document.createElement('a');
+          a.href = `#${encodeURIComponent(l.path)}`; a.textContent = l.title;
+          if (state.current === l.path) a.classList.add('active');
+          li.appendChild(a); ul.appendChild(li);
+        }
+        secEl.appendChild(ul); navEl.appendChild(secEl);
+      }
+    }
+
+    async function renderLesson(pathname) {
+      try {
+        const res = await fetch(pathname, { cache: 'no-store' });
+        if (!res.ok) throw new Error('Failed to load lesson: ' + pathname);
+        const md = await res.text();
+        marked.setOptions({
+          gfm:true, breaks:true,
+          highlight(code, lang){ try{ return hljs.highlight(code,{language:lang}).value; }
+                                 catch{ return hljs.highlightAuto(code).value; } }
+        });
+        const dirty = marked.parse(md);
+        const clean = DOMPurify.sanitize(dirty, { USE_PROFILES: { html: true } });
+        contentEl.innerHTML = clean;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        state.current = pathname; renderNav(searchEl.value);
+      } catch (e) { contentEl.innerHTML = `<p style="color:#fca5a5">${e.message}</p>`; }
+    }
+
+    function handleHashChange(){ const h=decodeURIComponent(location.hash.replace(/^#/,'')); if(h) renderLesson(h); }
+    searchEl.addEventListener('input', e => renderNav(e.target.value));
+    window.addEventListener('hashchange', handleHashChange);
+    (async function init(){ await fetchIndex(); if(location.hash) handleHashChange(); else {
+      const first = state.index[0]; if(first) location.hash = encodeURIComponent(first.path);
+      else contentEl.innerHTML = '<p style="color:#9ca3af">No lessons yet.</p>'; }})();
+  </script>
+</body>
+</html>
